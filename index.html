@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Sales Ledger</title>
+<link rel="manifest" href="manifest.webmanifest"><meta name="theme-color" content="#1f6f5c">
+<style>
+:root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);--bg:#f7f6f2;--fg:#1d1d1b;--mut:#6b6a63;--card:#fff;--line:#dcdad2;--acc:#1f6f5c;--accfg:#fff;--warn:#b3401f;color-scheme:light}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#171716;--fg:#ecebe4;--mut:#a09f96;--card:#222221;--line:#3a3a37;--acc:#4cb89e;--accfg:#10201b;--warn:#f08a68;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#171716;--fg:#ecebe4;--mut:#a09f96;--card:#222221;--line:#3a3a37;--acc:#4cb89e;--accfg:#10201b;--warn:#f08a68;color-scheme:dark}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+main{max-width:980px;margin:0 auto;padding:14px}
+h1{font-size:20px;margin:0}h2{font-size:16px;margin:16px 0 8px}
+header{display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap;margin-bottom:10px}
+nav{display:flex;gap:6px;overflow-x:auto;margin-bottom:12px}
+button,input,select,textarea{font:inherit;color:var(--fg);background:var(--card);border:1px solid var(--line);border-radius:8px;padding:8px 10px;max-width:100%}
+button{cursor:pointer}button.p,nav button.on{background:var(--acc);color:var(--accfg);border-color:var(--acc)}
+nav button{white-space:nowrap}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px;margin-bottom:12px}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:6px 0}
+label{color:var(--mut);font-size:13px}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px;margin:8px 0}
+.kpi{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:10px}.kpi b{display:block;font-size:19px}.kpi span{color:var(--mut);font-size:12px}
+.sc{overflow-x:auto}table{border-collapse:collapse;width:100%;font-size:14px}
+th,td{padding:6px 8px;border-bottom:1px solid var(--line);text-align:left;white-space:nowrap}th{color:var(--mut);font-weight:600}td.n,th.n{text-align:right}
+td input{width:100%;min-width:90px;padding:4px 6px}td input.a{min-width:100px;text-align:right}
+.mut{color:var(--mut)}.warn{color:var(--warn)}textarea{width:100%;min-height:90px;font-family:ui-monospace,monospace;font-size:12px}
+.bar{height:6px;background:var(--acc);border-radius:3px;min-width:2px}
+section{display:none}section.on{display:block}
+@media print{header,#tabs,.noprint{display:none!important}body{background:#fff;color:#000}.card{border:0;padding:0}section{display:none!important}section.on{display:block!important}th,td{color:#000}}
+</style></head><body>
+<div id="lock" style="display:none;position:fixed;inset:0;z-index:99;background:var(--bg);align-items:center;justify-content:center;padding:20px"><div class="card" style="max-width:340px;width:100%"><h2 style="margin-top:0">🔒 Sales Ledger</h2><p class="mut">Enter your PIN or password.</p><input id="lpin" type="password" autocomplete="current-password" style="width:100%"><div class="row"><button class="p" id="lgo">Unlock</button></div><p id="lmsg" class="warn"></p></div></div>
+<main>
+<header><h1>📒 Sales Ledger</h1>
+<div class="row"><label for="month">Viewing month</label><input type="month" id="month"></div></header>
+<nav id="tabs"><button data-t="dash" class="on">Dashboard</button><button data-t="up">Upload</button><button data-t="man">Add entry</button><button data-t="nam">Names</button><button data-t="rep">Report</button><button data-t="sup">Supplier</button><button data-t="par">Party</button><button data-t="mat">All parties</button><button data-t="led">Ledger</button><button data-t="set">Settings &amp; Backup</button><button data-t="help">Help</button></nav>
+
+<section id="dash" class="on"><div id="dashOut"></div></section>
+<section id="up"><div class="card">
+<div class="row"><div><label>Supplier</label><br><input id="supplier" list="sl" placeholder="e.g. X Industries"><datalist id="sl"></datalist><datalist id="pl"></datalist></div>
+<div><label>Report type</label><br><select id="type"><option value="ledger">One party (ledger rows)</option><option value="overview">Overview (many parties)</option><option value="invoice">Single invoice (net amount only)</option><option value="account">Account ledger statement (sales only)</option><option value="register">Sales register (net amount)</option><option value="stmt">Statement of account (debit = sales)</option></select></div>
+<div id="pw"><label>Party (if not in the file)</label><br><input id="party" list="pl" placeholder="e.g. A Industries"></div><div><label>Sales month</label><br><input type="month" id="smonth"></div><div><label>Rows belong to</label><br><select id="mmode"><option value="all">the sales month chosen</option><option value="date">the month of each row’s date</option></select></div></div>
+<div class="row"><input type="file" id="files" accept="application/pdf" multiple><button class="p" id="read">Read PDFs</button></div>
+<details><summary class="mut">Or paste text instead</summary><textarea id="paste" placeholder="Paste report text here"></textarea></details>
+<p id="status" class="mut"></p></div>
+<div class="card" id="dcard" style="display:none"><h2>Check before saving</h2><div id="dbar" class="kpi" style="margin-bottom:8px"></div><div class="sc"><table id="dt"></table></div>
+<div class="row"><button class="p" id="saveDraft">Save to ledger</button><button id="clearDraft">Discard</button></div>
+<details><summary class="mut">Extracted text (edit, then re-read rows)</summary><textarea id="raw"></textarea><button id="reparse">Re-read rows from text</button></details></div>
+<div class="card"><h2 style="margin-top:0">Recent uploads</h2><div id="batches"></div></div></section>
+
+<section id="man"><div class="card"><h2 style="margin-top:0">Add one entry by hand</h2>
+<div class="row"><div><label>Supplier</label><br><input id="msup" list="sl"></div><div><label>Client / party</label><br><input id="mpar" list="pl"></div></div>
+<div class="row"><div><label>Sales month</label><br><input type="month" id="mmon"></div><div><label>Invoice date (optional)</label><br><input type="date" id="mdate"></div><div><label>Invoice no.</label><br><input id="minv" style="width:120px"></div><div><label>Amount</label><br><input id="mamt" inputmode="decimal" style="width:130px"></div></div>
+<div class="row"><label><input type="checkbox" id="mex"> Exclude from commission (written-on goods)</label></div>
+<div class="row"><button class="p" id="mAdd">Add entry</button></div><p id="mMsg" class="mut"></p></div></section>
+<section id="nam"><div class="card"><h2 style="margin-top:0">Add names</h2><div class="row"><div><label>Suppliers (one per line)</label><br><textarea id="addSup"></textarea></div><div><label>Clients / parties (one per line)</label><br><textarea id="addPar"></textarea></div></div><div class="row"><button class="p" id="addNames">Add names</button></div><p id="namMsg" class="mut"></p><h2>Hold back (don’t import)</h2><p class="mut">Rows for these suppliers or clients are left out when you read a PDF. Use it for someone who will send next month.</p><div class="row"><input id="skipIn" placeholder="e.g. Sundilajah" list="pl"><button id="skipAdd">Add</button></div><div id="skipList"></div>
+<div id="namList"></div></div></section>
+<section id="rep"><div class="card"><h2 class="noprint" style="margin-top:0">Invoice report</h2><div class="row noprint"><div><label>Client</label><br><select id="rcl"></select></div><div><label>Supplier</label><br><select id="rsu"></select></div><div><label>Financial year (Apr–Mar)</label><br><select id="rfy"></select></div><div><label>From month</label><br><input type="month" id="rfrom"></div><div><label>To month</label><br><input type="month" id="rto"></div></div><div id="repHead"></div><div id="repOut"></div><div class="row noprint"><button class="p" id="rprint">Print</button><button id="rsave">Save as file (to print or share)</button><button id="rcopy">Copy as CSV</button></div><textarea id="rcsv" style="display:none"></textarea><p id="rmsg" class="mut noprint"></p></div></section>
+<section id="sup"><div class="card"><div class="row"><select id="vsup"></select></div><div id="supOut"></div></div></section>
+<section id="par"><div class="card"><div class="row"><select id="vpar"></select></div><div id="parOut"></div></div></section>
+<section id="mat"><div class="card"><div id="matOut"></div></div></section>
+<section id="led"><div class="card"><div id="ledOut"></div></div></section>
+<section id="help"><div class="card"><h2 style="margin-top:0">How the ledger works</h2>
+<p>The ledger is one list of rows. Each row has a supplier, a client (party), an invoice number, a date, a net amount and a <b>sales month</b>. Dashboard, Supplier, Party, All parties and Report are only different ways of adding up the same rows for the month chosen at the top.</p>
+<h2>Checking and uploading</h2><ol><li>Upload: choose the supplier, report type, sales month, then the PDFs. For an account ledger statement, only the SALES rows are taken; payments, opening balance and totals are skipped.</li><li>Read the bar above the table: rows read, total net amount, and how many need attention.</li><li>Check each net amount against the PDF. Use “Pick” to choose another number found in the file, or type it.</li><li>Fix the invoice number, date, client or sales month if needed, then press Save.</li></ol>
+<h2>Deleting mistakes</h2><p>Wrong upload: Upload → Recent uploads → Delete upload (tap twice). One row: Ledger → ✕.</p>
+<h2>Client names</h2><p>Names are never changed automatically. Correct a name in the check table or in the Ledger, or use Names → Rename to fix a spelling everywhere. Renaming to a name that already exists merges them.</p>
+<h2>Backup</h2><p>Data stays in this browser only. Open Settings &amp; Backup, copy the backup text and keep it safe. Paste it back there to restore.</p></div></section>
+<section id="set"><div class="card">
+<div class="row"><div><label>Commission %</label><br><input id="rate" type="number" step="0.01" style="width:100px"></div>
+<div><label>GST % included in invoice amounts (0 if already excluded)</label><br><input id="gst" type="number" step="0.01" style="width:100px"></div></div>
+<p class="mut">Commission = (invoice amount without GST) × rate, skipping rows marked “Excl.” in the ledger. [FILL: confirm what counts as excluded goods]</p>
+<h2 style="margin-top:0">App lock (PIN or password)</h2><p class="mut">Once set, this page asks for it every time it opens and after 2 minutes away. It keeps casual users out; it is not bank-level security.</p>
+<div class="row"><input id="pin1" type="password" placeholder="PIN or password"><input id="pin2" type="password" placeholder="Repeat it"><button id="pinSet">Set / change</button></div><div class="row"><button id="pinLock">Lock now</button><button id="pinOff">Remove PIN</button></div><p id="pinMsg" class="mut"></p>
+<h2>Backup is available here</h2><p class="mut">Data is saved only in this browser. Copy the backup text somewhere safe, or paste it here to restore.</p>
+<textarea id="bk"></textarea><div class="row"><button id="bkCopy">Show &amp; copy backup</button><button id="bkLoad">Restore from text</button></div><p id="bkMsg" class="mut"></p></div></section>
+</main>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script>
+const $=s=>document.querySelector(s),esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+let db={ledger:[],suppliers:[],parties:[],rate:2,gst:0},draft=[];
+try{const s=localStorage.getItem('sld');if(s)db=Object.assign(db,JSON.parse(s))}catch(e){}
+function fixdb(){db.skip=db.skip||[];db.suppliers=db.suppliers||[];db.parties=db.parties||[];db.ledger.forEach(r=>{if(!r.m)r.m=r.date.slice(0,7)})}fixdb();
+const save=()=>{try{localStorage.setItem('sld',JSON.stringify(db))}catch(e){}};
+const full=n=>'₹'+(+n||0).toLocaleString('en-IN',{maximumFractionDigits:2});
+const fmt=n=>Math.abs(n)>=1e7?'₹'+(n/1e7).toFixed(2)+' Cr':full(n);
+const iso=(y,m,d)=>y+'-'+String(m).padStart(2,'0')+'-'+String(d).padStart(2,'0');
+const MO='jan feb mar apr may jun jul aug sep oct nov dec'.split(' ');
+const net=r=>db.gst>0?r.amount/(1+db.gst/100):r.amount;
+const comm=r=>r.excl?0:net(r)*db.rate/100;
+const ym=()=>$('#month').value;
+const mrows=()=>db.ledger.filter(r=>r.m===ym());
+const uniq=k=>[...new Set([...(k==='supplier'?db.suppliers:db.parties),...db.ledger.map(r=>r[k])])].sort((a,b)=>a.localeCompare(b));
+const canon=(k,v)=>{const e=uniq(k).find(x=>x.toLowerCase()===v.toLowerCase());return e||v};
+
+function pd(s){let m=s.match(/\b(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{2,4})\b/);
+ if(m){let y=+m[3];if(y<100)y+=2000;return[iso(y,+m[2],+m[1]),m[0]]}
+ m=s.match(/\b(\d{1,2})[\s\-]([A-Za-z]{3})[a-z]*[\s\-,]+(\d{2,4})\b/);
+ if(m){const k=MO.indexOf(m[2].toLowerCase());if(k>-1){let y=+m[3];if(y<100)y+=2000;return[iso(y,k+1,+m[1]),m[0]]}}
+ return null}
+
+async function askClaudePage(page){
+ const vp=page.getViewport({scale:2}),c=document.createElement('canvas');c.width=vp.width;c.height=vp.height;
+ await page.render({canvasContext:c.getContext('2d'),viewport:vp}).promise;
+ const b=await new Promise(r=>c.toBlob(r,'image/jpeg',0.92));
+ const r=await window._sample('This image is one page of an accounting ledger statement. Transcribe all text exactly as printed, line by line, from top to bottom. Keep each table row on a single line with the columns separated by two spaces (date, voucher no, description, debit, credit, balance, Dr/Cr). Put each "Bill No" line on its own line directly under its row. Copy every number digit for digit. Output plain text only, with no commentary and no markdown.',{images:[b],modelTier:'default'});
+ return r.text}
+async function ocrPage(page){
+ if(typeof Tesseract==='undefined')await new Promise((ok,no)=>{const s=document.createElement('script');s.src='https://cdnjs.cloudflare.com/ajax/libs/tesseract.js/5.1.1/tesseract.min.js';s.onload=ok;s.onerror=()=>no(new Error('OCR library did not load'));document.head.appendChild(s)});
+ const vp=page.getViewport({scale:3}),c=document.createElement('canvas');c.width=vp.width;c.height=vp.height;
+ await page.render({canvasContext:c.getContext('2d'),viewport:vp}).promise;
+ const w=await Tesseract.createWorker('eng');try{await w.setParameters({tessedit_pageseg_mode:'6'});return(await w.recognize(c)).data.text}finally{await w.terminate()}}
+async function pdfText(file){
+ if(typeof pdfjsLib==='undefined')throw new Error('PDF reader did not load. Check your internet connection.');
+ pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+ const pdf=await pdfjsLib.getDocument({data:await file.arrayBuffer()}).promise;let out='';
+ for(let p=1;p<=pdf.numPages;p++){const pg=await pdf.getPage(p),tc=await pg.getTextContent(),rows={},o0=out.length;
+  tc.items.forEach(i=>{if(!i.str.trim())return;const y=Math.round(i.transform[5]/3);(rows[y]=rows[y]||[]).push(i)});
+  Object.keys(rows).map(Number).sort((a,b)=>b-a).forEach(y=>{let s='',pe=null;
+   rows[y].sort((a,b)=>a.transform[4]-b.transform[4]).forEach(i=>{const x=i.transform[4];
+    if(pe!==null){const g=x-pe;s+=g>8?'  ':g>1?' ':''}s+=i.str;pe=x+(i.width||0)});
+   out+=s+'\n'});if(out.length-o0<400&&(out.slice(o0).match(/\d[\d,]*\.\d{2}/g)||[]).length<3){try{$('#status').textContent='Page '+p+' has no readable text; reading it as a picture (this can take a minute)…';out+=(window._sample?await askClaudePage(pg):await ocrPage(pg))+'\n'}catch(e){window._ocrErr=e.message||String(e)}}}
+ return out}
+
+function parse(text,type,party,month){const out=[];
+ text.split('\n').forEach(raw=>{let l=raw.trim();if(!l)return;
+  const d=pd(l);if(type==='ledger'&&!d)return;
+  if(d)l=l.replace(d[1],' ');
+  const t=l.split(/\s+/).filter(Boolean);
+  let ai=-1;for(let i=t.length-1;i>=0;i--)if(/^-?\d[\d,]*(\.\d+)?$/.test(t[i])){ai=i;break}
+  if(ai<0)return;
+  const amt=parseFloat(t[ai].replace(/,/g,''));
+  let ii=-1;for(let i=0;i<t.length;i++)if(i!==ai&&/\d/.test(t[i])){ii=i;break}
+  const pre=ii>0&&/^[A-Z]{2,6}$/.test(t[ii-1])?ii-1:-1;const words=t.filter((x,i)=>i!==ai&&i!==ii&&i!==pre&&/[A-Za-z]/.test(x)).join(' ');
+  const p=type==='ledger'?(party||words):words;
+  if(!p||(type!=='ledger'&&/total|grand|gst|tax|page|balance|round|opening|closing/i.test(p)))return;
+  out.push({date:d?d[0]:month+'-01',inv:ii>-1?(pre>-1?t[pre]+' ':'')+t[ii]:'',party:p,amount:amt,excl:false})});
+ return out}
+
+const keyOf=r=>[r.supplier.toLowerCase(),r.party.toLowerCase(),String(r.inv||'').toLowerCase(),r.date,Math.round(r.amount*100)].join('|');
+function isDup(r){const s=$('#supplier').value.trim();if(!s||!r.party)return false;const k=keyOf({supplier:canon('supplier',s),party:canon('party',r.party.trim()),inv:r.inv,date:r.date,amount:+r.amount||0});return db.ledger.some(x=>keyOf(x)===k)}
+function renderDraft(){
+ $('#dcard').style.display=draft.length||$('#raw').value?'block':'none';
+ {const ok=r=>r.party&&r.date&&r.amount!=null&&!isNaN(r.amount),bad=draft.filter(r=>!ok(r)).length,nd=draft.filter(isDup).length,tt=draft.reduce((s,r)=>s+(+r.amount||0),0),sup=$('#supplier').value.trim().toLowerCase(),ks=new Set(db.ledger.map(r=>[r.supplier.toLowerCase(),r.inv||r.party.toLowerCase(),r.date,r.amount].join('|'))),dupN=draft.filter(r=>ks.has([sup,r.inv||String(r.party).toLowerCase(),r.date,r.amount].join('|'))).length;$('#dbar').innerHTML=`<b>${draft.length} rows read · total ${full(tt)}</b><br><span class="mut">${draft.length-nd} new, ${nd} already saved${nd&&nd===draft.length?' — nothing new to save':''}</span><br><span class="${bad?'warn':'mut'}">${bad?bad+' need attention (client, date or amount missing)':'All rows have a client, date and amount'}</span>`+(dupN?`<br><span class="warn">${dupN} rows were already uploaded earlier and will be skipped</span>`:'')+(window._acc?accLine(tt):'')}
+ $('#dt').innerHTML='<tr><th>Date</th><th>Invoice</th><th>Party</th><th class="n">Amount</th><th>Pick</th><th>Sales month</th><th>Status</th><th></th></tr>'+draft.map((r,i)=>
+  `<tr><td><input data-i="${i}" data-k="date" value="${esc(r.date)}"></td><td><input data-i="${i}" data-k="inv" value="${esc(r.inv)}"></td><td><input list="pl" data-i="${i}" data-k="party" value="${esc(r.party)}"></td><td><input class="a" data-i="${i}" data-k="amount" value="${r.amount==null||isNaN(r.amount)?'':r.amount}"></td><td>${(r.c||[]).length?`<select data-pk="${i}"><option value="">…</option>${r.c.map(c=>`<option>${esc(c)}</option>`).join('')}</select>`:''}${(r.pp||[]).length?`<select data-pq="${i}"><option value="">party…</option>${r.pp.map(c=>`<option>${esc(c)}</option>`).join('')}</select>`:''}</td><td><input data-i="${i}" data-k="m" value="${esc(r.m)}" style="min-width:80px"></td><td>${isDup(r)?'<span class="mut">Already saved</span>':'New'}</td><td><button data-del="${i}">✕</button></td></tr>`).join('')}
+$('#dt').addEventListener('input',e=>{const i=e.target.dataset.i;if(i==null)return;const k=e.target.dataset.k;draft[i][k]=k==='amount'?parseFloat(e.target.value)||0:e.target.value});
+$('#dt').addEventListener('click',e=>{const d=e.target.dataset.del;if(d!=null){draft.splice(+d,1);renderDraft()}});
+function reparse(){const rt=$('#raw').value;let at=null;if(/Register\s+Wise\s+Sales/i.test(rt))at='register';else if(/SALES\s*A.?C/i.test(rt)&&/DRAMT|DEBIT/i.test(rt))at='account';else if(/Debit\s+Credit\s+Balance/i.test(rt))at='stmt';if(at&&$('#type').value!==at){$('#type').value=at;$('#type').onchange()}const sm=$('#smonth').value||ym();const ty0=$('#type').value,ty=(ty0==='ledger'&&/Debit\s+Credit\s+Balance/i.test($('#raw').value))?'stmt':ty0,docs=$('#raw').value.split('=====FILE=====').filter(x=>x.trim());if((ty==='account'||ty==='register'||ty==='stmt')&&!$('#supplier').value.trim()&&docs[0]){const D=docs[0].trim().split('\n').map(x=>x.trim()).filter(Boolean),mm=docs[0].match(/\*\*\s*([^*]+?)\s*\*\*/),pi=D.findIndex(x=>/PAGE\s*NO/i.test(x)),hi=D.findIndex(x=>/Debit\s+Credit\s+Balance/i.test(x)),h=(ty==='stmt'&&hi>=0&&D[hi+1]?D[hi+1]:mm?mm[1]:pi>=0&&D[pi+1]?D[pi+1]:D[0]).replace(/\*/g,'').trim();if(h)$('#supplier').value=h}draft=ty==='invoice'?docs.map(x=>parseInv(x,$('#party').value.trim(),sm)):ty==='account'?docs.flatMap(x=>parseAcc(x,$('#party').value.trim(),sm)):ty==='register'?docs.flatMap(x=>parseReg(x,sm)):ty==='stmt'?docs.flatMap(x=>parseStmt(x,$('#party').value.trim(),sm)):parse($('#raw').value,ty,$('#party').value.trim(),sm);window._acc=(ty==='account'||ty==='register'||ty==='stmt')?docs.map(accInfo).reduce((a,b)=>({open:(a.open||0)+(b.open||0),deb:a.deb==null&&b.deb==null?null:(a.deb||0)+(b.deb||0),net:a.net==null&&b.net==null?null:(a.net||0)+(b.net||0)}),{open:0,deb:null,net:null}):null;draft.forEach(r=>{r.m=($('#mmode').value==='date'||ty==='stmt')&&/^\d{4}-\d{2}/.test(r.date)?r.date.slice(0,7):sm});
+ const n0=draft.length;draft=draft.filter(r=>!isHeld(r));const hn=n0-draft.length;$('#status').textContent=draft.length?draft.length+' rows found. Check them, fix any mistakes, then save.'+(hn?' '+hn+' rows left out (name is on the hold-back list).':''):'No rows found. '+(window._ocrErr?'This PDF looks like a picture and OCR could not run here ('+window._ocrErr+'). Use the installed or hosted version, or copy the text with Google Lens and paste it in the box above.':'Open “Extracted text” below to see what was read.');renderDraft()}
+$('#read').onclick=async()=>{window._ocrErr=null;const st=$('#status');let txt='';
+ try{for(const f of $('#files').files){st.textContent='Reading '+f.name+'…';txt+=await pdfText(f)+'\n=====FILE=====\n'}}
+ catch(e){st.textContent='Could not read a PDF: '+e.message;return}
+ if($('#paste').value.trim())txt+=$('#paste').value;
+ if(!txt.trim()){st.textContent='Choose a PDF or paste text first.';return}
+ $('#raw').value=txt;reparse()};
+$('#reparse').onclick=reparse;
+$('#clearDraft').onclick=()=>{draft=[];$('#raw').value='';$('#status').textContent='';renderDraft()};
+$('#type').onchange=()=>{$('#pw').style.display=['ledger','invoice','account'].includes($('#type').value)?'':'none';if(['account','register','stmt'].includes($('#type').value))$('#mmode').value='date'};
+$('#saveDraft').onclick=()=>{const sup=$('#supplier').value.trim(),st=$('#status');
+ if(!sup){st.textContent='Type or choose the supplier first.';return}
+ const key=keyOf;
+ const keys=new Set(db.ledger.map(key));let add=0,dup=0;const rest=[];let hd=0;const S=canon('supplier',sup),bid=Date.now();
+ draft.forEach(d=>{if(isHeld(d)){hd++;return}if(!d.party||!d.date||!(d.amount||d.amount===0)){rest.push(d);return}
+  const r={id:Date.now()+Math.random(),supplier:S,party:canon('party',d.party.trim()),date:d.date,inv:d.inv,amount:d.amount,m:/^\d{4}-\d{2}$/.test(d.m)?d.m:d.date.slice(0,7),b:bid,excl:false};
+  if(keys.has(key(r))){dup++;return}keys.add(key(r));db.ledger.push(r);add++});
+ save();draft=rest;if(!rest.length)$('#raw').value='';renderDraft();render();
+ st.textContent='Saved '+add+' rows'+(dup?'; skipped '+dup+' already in the ledger':'')+(hd?'; '+hd+' left out (hold-back list)':'')+(rest.length?'. '+rest.length+' rows still need a client or amount and were left in the table':'')+'.'};
+
+function fill(el,vals){const cur=el.value;el.innerHTML=vals.map(v=>`<option>${esc(v)}</option>`).join('');if(vals.includes(cur))el.value=cur}
+const group=(rows,k)=>{const m={};rows.forEach(r=>{const g=m[r[k]]=m[r[k]]||{amt:0,com:0,n:0};g.amt+=r.amount;g.com+=comm(r);g.n++});return Object.entries(m).sort((a,b)=>b[1].amt-a[1].amt)};
+const kpis=(a,c,n,x)=>`<div class="kpis"><div class="kpi"><b>${fmt(a)}</b><span>Sales</span></div><div class="kpi"><b>${fmt(c)}</b><span>Commission</span></div><div class="kpi"><b>${n}</b><span>${x}</span></div></div>`;
+function breakdown(rows,k,label,lim){const g=group(rows,k).slice(0,lim||9999),tot=rows.reduce((s,r)=>s+r.amount,0)||1;
+ if(!g.length)return'<p class="mut">No data for this month.</p>';
+ return`<div class="sc"><table><tr><th>${label}</th><th class="n">Sales</th><th class="n">Commission</th><th class="n">Share</th><th></th></tr>`+g.map(([n,v])=>`<tr><td>${esc(n)}</td><td class="n">${full(v.amt)}</td><td class="n">${full(v.com)}</td><td class="n">${(v.amt/tot*100).toFixed(1)}%</td><td style="width:90px"><div class="bar" style="width:${v.amt/tot*100}%"></div></td></tr>`).join('')+'</table></div>'}
+function render(){
+ $('#sl').innerHTML=uniq('supplier').map(v=>`<option value="${esc(v)}">`).join('');$('#pl').innerHTML=uniq('party').map(v=>`<option value="${esc(v)}">`).join('');dash();names();rep();batches();skips();
+ fill($('#vsup'),uniq('supplier'));fill($('#vpar'),uniq('party'));
+ const R=mrows(),sr=R.filter(r=>r.supplier===$('#vsup').value),pr=R.filter(r=>r.party===$('#vpar').value);
+ const sum=(a,f)=>a.reduce((s,r)=>s+f(r),0);
+ $('#supOut').innerHTML=kpis(sum(sr,r=>r.amount),sum(sr,comm),new Set(sr.map(r=>r.party)).size,'Parties')+breakdown(sr,'party','Party');
+ $('#parOut').innerHTML=kpis(sum(pr,r=>r.amount),sum(pr,comm),new Set(pr.map(r=>r.supplier)).size,'Suppliers')+breakdown(pr,'supplier','Supplier');
+ const sups=[...new Set(R.map(r=>r.supplier))].sort(),pars=[...new Set(R.map(r=>r.party))].sort();
+ const cell=(p,s)=>sum(R.filter(r=>r.party===p&&r.supplier===s),r=>r.amount);
+ $('#matOut').innerHTML=!R.length?'<p class="mut">No data for this month.</p>':kpis(sum(R,r=>r.amount),sum(R,comm),sups.length,'Suppliers')+'<div class="sc"><table><tr><th>Party</th>'+sups.map(s=>`<th class="n">${esc(s)}</th>`).join('')+'<th class="n">Total</th></tr>'+
+  pars.map(p=>`<tr><td>${esc(p)}</td>`+sups.map(s=>{const v=cell(p,s);return`<td class="n">${v?full(v):'<span class="mut">–</span>'}</td>`}).join('')+`<td class="n"><b>${full(sum(R.filter(r=>r.party===p),r=>r.amount))}</b></td></tr>`).join('')+
+  '<tr><th>Total</th>'+sups.map(s=>`<th class="n">${full(sum(R.filter(r=>r.supplier===s),r=>r.amount))}</th>`).join('')+`<th class="n">${full(sum(R,r=>r.amount))}</th></tr></table></div>`;
+ $('#ledOut').innerHTML=!R.length?'<p class="mut">No rows for this month.</p>':'<div class="sc"><table><tr><th>Date</th><th>Sales month</th><th>Invoice</th><th>Supplier</th><th>Party</th><th class="n">Amount</th><th>Excl.</th><th></th></tr>'+
+  R.sort((a,b)=>a.date.localeCompare(b.date)).slice(0,400).map(r=>`<tr><td>${esc(r.date)}</td><td><input type="month" data-mm="${r.id}" value="${esc(r.m)}" style="min-width:140px"></td><td>${esc(r.inv)}</td><td>${esc(r.supplier)}</td><td><input list="pl" data-pp="${r.id}" value="${esc(r.party)}" style="min-width:150px"></td><td class="n">${full(r.amount)}</td><td><input type="checkbox" data-x="${r.id}" ${r.excl?'checked':''}></td><td><button data-rm="${r.id}">✕</button></td></tr>`).join('')+'</table></div>'}
+$('#ledOut').addEventListener('click',e=>{const id=e.target.dataset.rm;if(id){db.ledger=db.ledger.filter(r=>String(r.id)!==id);save();render()}});
+$('#ledOut').addEventListener('change',e=>{const id=e.target.dataset.x;if(id){const r=db.ledger.find(r=>String(r.id)===id);if(r){r.excl=e.target.checked;save();render()}}});
+$('#vsup').onchange=$('#vpar').onchange=render;$('#month').onchange=render;
+$('#tabs').onclick=e=>{const t=e.target.dataset.t;if(!t)return;document.querySelectorAll('section').forEach(s=>s.classList.toggle('on',s.id===t));document.querySelectorAll('#tabs button').forEach(b=>b.classList.toggle('on',b===e.target))};
+$('#rate').value=db.rate;$('#gst').value=db.gst;
+function dash(){const R=mrows(),sum=(a,f)=>a.reduce((s,r)=>s+f(r),0);
+ const got=new Set(R.map(r=>r.supplier)),miss=uniq('supplier').filter(s=>!got.has(s));
+ const ms=[];let[y,m]=ym().split('-').map(Number);for(let i=0;i<6;i++){ms.unshift(y+'-'+String(m).padStart(2,'0'));m--;if(!m){m=12;y--}}
+ const tt=ms.map(k=>sum(db.ledger.filter(r=>r.m===k),r=>r.amount)),mx=Math.max(...tt,1);
+ $('#dashOut').innerHTML=`<div class="card"><h2 style="margin-top:0">${esc(ym())}</h2>`+kpis(sum(R,r=>r.amount),sum(R,comm),got.size+' / '+new Set(R.map(r=>r.party)).size,'Suppliers / parties')+'</div>'+
+ `<div class="card"><h2 style="margin-top:0">Last 6 months</h2><div class="sc"><table>`+ms.map((k,i)=>`<tr><td>${k}</td><td class="n">${full(tt[i])}</td><td style="width:45%"><div class="bar" style="width:${tt[i]/mx*100}%"></div></td></tr>`).join('')+'</table></div></div>'+
+ `<div class="card"><h2 style="margin-top:0">Top suppliers</h2>${breakdown(R,'supplier','Supplier',8)}</div><div class="card"><h2 style="margin-top:0">Top clients</h2>${breakdown(R,'party','Party',8)}</div>`+
+ `<div class="card"><h2 style="margin-top:0">No data yet this month</h2>${miss.length?esc(miss.join(', ')):'<span class="mut">Every known supplier has data.</span>'}</div>`}
+function names(){const cnt=(k,v)=>db.ledger.filter(r=>r[k]===v).length;
+ const box=(k,list,t)=>`<h2>${t}</h2>`+(list.length?'<div class="sc"><table>'+list.map(v=>{const c=cnt(k,v);return`<tr><td><input data-rin="1" value="${esc(v)}" style="min-width:160px"></td><td class="n mut">${c} rows</td><td><button data-rename="${k}" data-v="${esc(v)}">Rename</button> ${c?'':`<button data-rn="${k}" data-v="${esc(v)}">✕</button>`}</td></tr>`}).join('')+'</table></div>':'<p class="mut">None yet.</p>');
+ $('#namList').innerHTML=box('supplier',uniq('supplier'),'Suppliers')+box('party',uniq('party'),'Clients / parties')}
+$('#namList').addEventListener('click',e=>{const k=e.target.dataset.rn;if(!k)return;const l=k==='supplier'?'suppliers':'parties';db[l]=db[l].filter(x=>x!==e.target.dataset.v);save();render()});
+$('#addNames').onclick=()=>{let n=0;[['#addSup','supplier','suppliers'],['#addPar','party','parties']].forEach(([id,k,l])=>{$(id).value.split(/[\n;]+/).map(s=>s.trim()).filter(Boolean).forEach(v=>{if(!uniq(k).some(x=>x.toLowerCase()===v.toLowerCase())){db[l].push(v);n++}});$(id).value=''});save();render();$('#namMsg').textContent=n+' new names added.'};
+$('#mAdd').onclick=()=>{const g=id=>$(id).value.trim(),msg=$('#mMsg'),sup=g('#msup'),par=g('#mpar'),amt=parseFloat(g('#mamt').replace(/,/g,'')),mo=g('#mmon'),dt=g('#mdate');
+ if(!sup||!par||isNaN(amt)||!mo){msg.textContent='Fill supplier, client, sales month and amount.';return}
+ db.ledger.push({id:Date.now()+Math.random(),supplier:canon('supplier',sup),party:canon('party',par),date:dt||mo+'-01',inv:g('#minv'),amount:amt,m:mo,excl:$('#mex').checked});
+ save();render();msg.textContent='Added '+full(amt)+' for '+sup+' / '+par+' ('+mo+').';$('#minv').value='';$('#mamt').value=''};
+$('#ledOut').addEventListener('change',e=>{const id=e.target.dataset.mm;if(id){const r=db.ledger.find(r=>String(r.id)===id);if(r&&e.target.value){r.m=e.target.value;save();render()}}});
+if('serviceWorker' in navigator&&location.protocol==='https:')navigator.serviceWorker.register('sw.js').catch(()=>{});
+function parseInv(t,party,sm){const L=t.split('\n').map(x=>x.trim()).filter(Boolean);let amt=null;
+ const num=s=>{const m=s.match(/-?\d[\d,]*(\.\d+)?/g);return m?parseFloat(m[m.length-1].replace(/,/g,'')):null};
+ const re=/net\s*(amount|amt|value|total|payable)/i;
+ for(let i=L.length-1;i>=0&&amt==null;i--)if(re.test(L[i])){amt=num(L[i].replace(re,''));if(amt==null&&L[i+1])amt=num(L[i+1])}
+ const im=t.match(/invoice\s*(?:no|number|num|#)\.?\s*[:\-]?\s*([A-Za-z0-9\/\-]+)/i);
+ const dl=L.find(l=>/invoice\s*date|inv\.?\s*date/i.test(l)&&pd(l))||L.find(l=>/\bdate\b/i.test(l)&&pd(l)),d=pd(dl||t);
+ let p=party;if(!p){const c=t.match(/(?:bill(?:ed)? to|buyer|consignee|customer)\s*[:\-]?\s*(?:m\/s\.?)?\s*([^\n]+)/i);p=c?c[1].trim():''}
+ const cs=[];L.forEach(l=>{if(/net|total|amount|payable|grand/i.test(l))(l.match(/\d[\d,]*\.\d{1,2}|\d{1,3}(?:,\d{2,3})+/g)||[]).forEach(x=>{if(!cs.includes(x))cs.push(x)})});
+ return{date:d?d[0]:sm+'-01',inv:im?im[1]:(t.match(/\b[A-Z]{2,6}\s?\d{2,6}\b/)||[''])[0],party:p,amount:amt,excl:false,c:cs.slice(-8)}}
+function parseAcc(text,party,month){const L=text.split('\n').map(x=>x.trim()).filter(Boolean),out=[];
+ let cl=party;if(!cl){const a=text.match(/(?:Account|Party)\s*:\s*(.+?)\s+GSTIN/i);cl=a?a[1].trim():''}
+ for(let i=0;i<L.length;i++){const d=pd(L[i]);if(!d||L[i].indexOf(d[1])>14)continue;
+  const after=L[i].replace(d[1],' '),m=after.match(/\bSALES\b[^\d]*(.*)$/i);if(!m||/return/i.test(after))continue;
+  const nums=m[1].match(/-?\d[\d,]*\.\d+/g);if(!nums)continue;
+  let bn=null;for(let j=i+1;j<=i+3&&j<L.length&&!bn;j++){const dj=pd(L[j]);if(/\bSALES\b|\bIDFC\b/i.test(L[j])||(dj&&L[j].indexOf(dj[1])<=14))break;bn=L[j].match(/^Bill\s*No\s*:\s*(.+)$/i)}const v0=after.trim().split(/\s+/)[0],vm=/^SALES$/i.test(v0)?null:[0,v0];
+  out.push({date:d[0],inv:bn?bn[1].replace(/\s*Remarks.*$/i,'').trim().replace(/,$/,''):(vm?vm[1]:''),party:cl,amount:parseFloat(nums[0].replace(/,/g,'')),excl:false})}
+ return out}
+function parseStmt(text,party,sm){const L=text.split('\n').map(x=>x.trim()).filter(Boolean),out=[],n=s=>parseFloat(s.replace(/,/g,''));
+ let cl=party;if(!cl){const i=L.findIndex(x=>/^Date\s+Period/i.test(x));if(i>=0&&L[i+1])cl=L[i+1].trim()}
+ let prev=null;const tail=/((?:-?\d[\d,]*\.\d{2}\s+){1,2})(Dr|Cr)\s*$/i,isS=s=>/Bill\s*No|Invoice|Sale/i.test(s);
+ for(let i=0;i<L.length;i++){let s=L[i];const d=pd(s);if(!d||s.indexOf(d[1])>3)continue;
+  if(!tail.test(s)&&i+1<L.length&&!pd(L[i+1]))s+=' '+L[i+1];
+  const t=s.match(tail);if(!t)continue;
+  const nu=t[1].trim().split(/\s+/).map(n),bal=(/cr/i.test(t[2])?-1:1)*nu[nu.length-1];
+  if(/opening/i.test(s)){prev=bal;continue}
+  const a=nu.length>1?nu[0]:(prev==null?null:Math.abs(bal-prev));if(a==null){prev=bal;continue}
+  let debit;if(prev!=null){const dl=bal-prev;debit=Math.abs(dl-a)<1?true:Math.abs(dl+a)<1?false:isS(s)}else debit=isS(s);
+  prev=bal;
+  if(debit){const b=s.match(/Bill\s*No\.?\s*(\S+)/i);out.push({date:d[0],inv:b?b[1]:'',party:cl,amount:a,excl:false})}}
+ return out}
+function parseReg(t,sm){const out=[],fm=t.match(/FROM\s+(\d{1,2})\/(\d{1,2})\/(\d{4})/i),fy=fm?+fm[3]:+sm.slice(0,4),fmo=fm?+fm[2]:1,known=uniq('party').sort((a,b)=>b.length-a.length);
+ t.split('\n').forEach(l=>{const m=l.trim().match(/^([A-Z]{2,6})\s+(\d+)\s+(\d{1,2})\/(\d{1,2})\/(\d{2,4})\s+(.+?)\s+(\d+)\s+(-?[\d,]+\.\d+)\s+(-?[\d,]+\.\d+)\s+(-?[\d,]+\.\d+)\s+(-?[\d,]+\.\d+)\s+(-?[\d,]+\.\d+)\s*$/);if(!m)return;
+  const mo=+m[4],yy=m[5].length===4?+m[5]:(mo<fmo?fy+1:fy),text=m[6].trim(),w=text.split(/\s+/),k=known.find(n=>(text.toLowerCase()+' ').startsWith(n.toLowerCase()+' ')),pp=[1,2,3,4].filter(i=>i<=w.length).map(i=>w.slice(0,i).join(' '));
+  out.push({date:iso(yy,mo,+m[3]),inv:m[1]+' '+m[2],party:k||pp[Math.min(1,pp.length-1)],amount:parseFloat(m[11].replace(/,/g,'')),excl:false,pp:k?[]:pp,tx:text})});
+ return out}
+function accInfo(t){const n=s=>parseFloat(s.replace(/,/g,'')),o=t.match(/OPENING\s+(?:BALANCE|B\/F)\s*:?\s*(-?[\d,]+\.\d+)/i),tt=t.match(/^\s*Total\s*:?\s+([\d,]+\.\d+)\s+([\d,]+\.\d+)/im);const g=t.match(/^\s*GRAN\w*\s+\d+\s+[\d,.]+\s+[\d,.]+\s+[\d,]+\.\d+\s+([\d,]+\.\d+)/im);return{open:o?n(o[1]):null,deb:tt?n(tt[1]):null,net:g?n(g[1]):null}}
+function accLine(sales){const a=window._acc;if(a&&a.net!=null){const ok=Math.abs(sales-a.net)<1;return`<br><span class="${ok?'mut':'warn'}">Report grand total ${full(a.net)}; rows read ${full(sales)} ${ok?'✓':'— does not match, check for missing or wrong rows'}</span>`}if(!a||a.deb==null)return'';const open=a.open||0,ok=Math.abs(open+sales-a.deb)<1;return`<br><span class="${ok?'mut':'warn'}">Statement: opening ${full(open)} + sales read ${full(sales)} = ${full(open+sales)}; statement total debit ${full(a.deb)} ${ok?'✓':'— does not match, check for missing or wrong rows'}</span>`}
+function rep(){fill($('#rcl'),uniq('party'));fill($('#rsu'),uniq('supplier'));{const ys=[...new Set(db.ledger.map(r=>{const[y,mo]=r.m.split('-').map(Number);return mo>=4?y:y-1}))].sort((a,b)=>b-a);fill($('#rfy'),['All',...ys.map(y=>y+'-'+String(y+1).slice(2))])}
+ const f=$('#rfrom').value,t=$('#rto').value,fy=$('#rfy').value,fy0=fy&&fy!=='All'?parseInt(fy):0;
+ const R=db.ledger.filter(r=>r.party===$('#rcl').value&&r.supplier===$('#rsu').value&&(!f||r.m>=f)&&(!t||r.m<=t)&&(!fy0||(r.m>=fy0+'-04'&&r.m<=(fy0+1)+'-03'))).sort((a,b)=>a.date.localeCompare(b.date));
+ const tot=R.reduce((s,r)=>s+r.amount,0);window._rep=[R,tot];
+ const MN=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+ const mk=fy0?Array.from({length:12},(_,i)=>{const mo=(i+3)%12+1,y=mo>=4?fy0:fy0+1;return y+'-'+String(mo).padStart(2,'0')}):[...new Set(R.map(r=>r.m))].sort();
+ const ml=k=>MN[+k.slice(5)-1]+' '+k.slice(0,4);
+ const msum=R.length?'<h2>Month-wise sales</h2><div class="sc"><table><tr><th>Month</th><th class="n">Invoices</th><th class="n">Sales</th></tr>'+mk.map(k=>{const x=R.filter(r=>r.m===k);return`<tr><td>${ml(k)}</td><td class="n">${x.length}</td><td class="n">${x.length?full(x.reduce((s,r)=>s+r.amount,0)):'<span class="mut">–</span>'}</td></tr>`}).join('')+`<tr><th>Total</th><th class="n">${R.length}</th><th class="n">${full(tot)}</th></tr></table></div><h2>All invoices</h2>`:'';
+ $('#repHead').innerHTML=`<h2 style="margin-top:0">${esc($('#rcl').value)} — ${esc($('#rsu').value)}</h2><p class="mut">${fy0?'Financial year '+esc(fy):'All months'}</p>`;
+ $('#repOut').innerHTML=!R.length?'<p class="mut">No invoices for this client and supplier.</p>':msum+'<div class="sc"><table><tr><th>Date</th><th>Invoice #</th><th class="n">Net amount</th></tr>'+R.map(r=>`<tr><td>${esc(r.date)}</td><td>${esc(r.inv)}</td><td class="n">${full(r.amount)}</td></tr>`).join('')+`<tr><th>Total (${R.length})</th><th></th><th class="n">${full(tot)}</th></tr></table></div>`}
+$('#rcl').onchange=$('#rsu').onchange=$('#rfrom').onchange=$('#rto').onchange=rep;
+$('#rcopy').onclick=()=>{const[R,tot]=window._rep||[[],0],q=s=>'"'+String(s).replace(/"/g,'""')+'"';
+ const b=$('#rcsv');b.value=['Date,Invoice,Net amount',...R.map(r=>[q(r.date),q(r.inv),r.amount].join(',')),'Total,,'+tot].join('\n');b.style.display='block';b.select();let ok=false;try{ok=document.execCommand('copy')}catch(e){}$('#rmsg').textContent=ok?'CSV copied.':'Select the text above and copy it.'};
+function batches(){const m={};db.ledger.forEach(r=>{if(r.b)(m[r.b]=m[r.b]||[]).push(r)});
+ const ks=Object.keys(m).sort((a,b)=>b-a).slice(0,10);
+ $('#batches').innerHTML=ks.length?'<div class="sc"><table><tr><th>Uploaded</th><th>Supplier</th><th>Rows</th><th class="n">Total</th><th></th></tr>'+ks.map(k=>{const R=m[k];return`<tr><td>${esc(new Date(+k).toLocaleString('en-IN'))}</td><td>${esc(R[0].supplier)}</td><td>${R.length}</td><td class="n">${full(R.reduce((s,r)=>s+r.amount,0))}</td><td><button data-bd="${k}">Delete upload</button></td></tr>`}).join('')+'</table></div>':'<p class="mut">Uploads saved from now on appear here, so a wrong upload can be removed in one go.</p>'}
+$('#batches').addEventListener('click',e=>{const b=e.target.dataset.bd;if(!b)return;if(!e.target.dataset.arm){e.target.dataset.arm=1;e.target.textContent='Tap again to delete';return}db.ledger=db.ledger.filter(r=>String(r.b)!==b);save();render()});
+$('#dt').addEventListener('change',e=>{const i=e.target.dataset.pk;if(i!=null&&e.target.value){draft[i].amount=parseFloat(e.target.value.replace(/,/g,''));renderDraft()}});
+$('#ledOut').addEventListener('change',e=>{const id=e.target.dataset.pp;if(id){const r=db.ledger.find(r=>String(r.id)===id),v=e.target.value.trim();if(r&&v){r.party=canon('party',v);save();render()}}});
+$('#namList').addEventListener('click',e=>{const k=e.target.dataset.rename;if(!k)return;const old=e.target.dataset.v,nv=e.target.closest('tr').querySelector('input').value.trim();if(!nv||nv===old)return;
+ const l=k==='supplier'?'suppliers':'parties',ex=uniq(k).find(x=>x!==old&&x.toLowerCase()===nv.toLowerCase()),to=ex||nv;
+ db.ledger.forEach(r=>{if(r[k]===old)r[k]=to});db[l]=[...new Set(db[l].map(x=>x===old?to:x))];save();render()});
+$('#rfy').onchange=rep;
+$('#rprint').onclick=()=>{try{window.print()}catch(e){}$('#rmsg').textContent='If nothing opened, use “Save as file”, open that file and print it.'};
+$('#rsave').onclick=async()=>{try{const d=await claude.use('downloads');if(!d){$('#rmsg').textContent='Saving files is not available here. Use Copy as CSV.';return}
+ const css='body{font:14px system-ui,sans-serif;margin:24px;color:#000}table{border-collapse:collapse;width:100%;margin:8px 0}th,td{border:1px solid #999;padding:5px 8px;text-align:left}.n{text-align:right}h2{font-size:16px}.mut{color:#555}';
+ await d.save({filename:'sales-report.html',data:'<!DOCTYPE html><html><head><meta charset="utf-8"><title>Sales report</title><style>'+css+'</style></head><body>'+$('#repHead').innerHTML+$('#repOut').innerHTML+'</body></html>'})}catch(e){$('#rmsg').textContent=e&&e.code==='declined'?'Not saved.':'Could not save the file here.'}};
+const PK='sld_pin',getPin=()=>{try{return localStorage.getItem(PK)}catch(e){return null}};
+async function hsh(s){const b=await crypto.subtle.digest('SHA-256',new TextEncoder().encode('sld|'+s));return[...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,'0')).join('')}
+function lock(){if(getPin()){$('#lock').style.display='flex';$('#lpin').value=''}}
+let bad=0,until=0,hiddenAt=0;
+$('#lgo').onclick=async()=>{const m=$('#lmsg');if(Date.now()<until){m.textContent='Too many tries. Wait 30 seconds.';return}
+ try{if(await hsh($('#lpin').value)===getPin()){$('#lock').style.display='none';bad=0;m.textContent=''}else{bad++;if(bad>=5){until=Date.now()+30000;bad=0}m.textContent='Wrong PIN or password.'}}catch(e){m.textContent='The lock does not work in this browser.'}};
+$('#lpin').addEventListener('keydown',e=>{if(e.key==='Enter')$('#lgo').click()});
+$('#pinSet').onclick=async()=>{const a=$('#pin1').value,b=$('#pin2').value,m=$('#pinMsg');if(a.length<4){m.textContent='Use at least 4 characters.';return}if(a!==b){m.textContent='The two entries do not match.';return}
+ try{localStorage.setItem(PK,await hsh(a));m.textContent='Saved. If you forget it, the only way in is clearing this browser\u2019s data, which erases the ledger, so keep a backup.';$('#pin1').value=$('#pin2').value=''}catch(e){m.textContent='Could not save the PIN here.'}};
+$('#pinOff').onclick=async()=>{const m=$('#pinMsg');try{if(!getPin()){m.textContent='No PIN is set.';return}if(await hsh($('#pin1').value)!==getPin()){m.textContent='Type your current PIN in the first box, then press Remove PIN.';return}localStorage.removeItem(PK);m.textContent='PIN removed.';$('#pin1').value=''}catch(e){m.textContent='Could not remove the PIN.'}};
+$('#pinLock').onclick=()=>{if(getPin())lock();else $('#pinMsg').textContent='Set a PIN first.'};
+document.addEventListener('visibilitychange',()=>{if(document.hidden)hiddenAt=Date.now();else if(hiddenAt&&Date.now()-hiddenAt>120000)lock()});
+lock();
+$('#dt').addEventListener('change',e=>{const i=e.target.dataset.pq;if(i==null||!e.target.value)return;const v=e.target.value.toLowerCase();draft.forEach(r=>{if(r.tx&&(r.tx.toLowerCase()+' ').startsWith(v+' '))r.party=e.target.value});renderDraft()});
+function isHeld(r){const lc=s=>String(s||'').toLowerCase(),sp=lc($('#supplier').value.trim());return(db.skip||[]).some(x=>{x=lc(x);return lc(r.party)===x||(lc(r.party)+' ').startsWith(x+' ')||(r.tx&&(lc(r.tx)+' ').startsWith(x+' '))||sp===x})}
+function skips(){$('#skipList').innerHTML=(db.skip||[]).map((v,i)=>`<button data-sk="${i}">${esc(v)} ✕</button> `).join('')||'<p class="mut">Nothing is held back.</p>'}
+$('#skipAdd').onclick=()=>{const v=$('#skipIn').value.trim();if(v&&!db.skip.some(x=>x.toLowerCase()===v.toLowerCase())){db.skip.push(v);save();$('#skipIn').value='';render()}};
+$('#skipList').addEventListener('click',e=>{const i=e.target.dataset.sk;if(i!=null){db.skip.splice(+i,1);save();render()}});
+$('#supplier').addEventListener('input',()=>{if(draft.length)renderDraft()});
+$('#rate').oninput=()=>{db.rate=parseFloat($('#rate').value)||0;save();render()};
+$('#gst').oninput=()=>{db.gst=parseFloat($('#gst').value)||0;save();render()};
+$('#bkCopy').onclick=()=>{const b=$('#bk');b.value=JSON.stringify(db);b.select();let ok=false;try{ok=document.execCommand('copy')}catch(e){}$('#bkMsg').textContent=ok?'Copied. Paste it into a note or message to keep it safe.':'Select the text above and copy it manually.'};
+$('#bkLoad').onclick=()=>{try{const d=JSON.parse($('#bk').value);if(!Array.isArray(d.ledger))throw 0;db=Object.assign({ledger:[],rate:2,gst:0},d);fixdb();save();$('#rate').value=db.rate;$('#gst').value=db.gst;render();$('#bkMsg').textContent='Restored '+db.ledger.length+' rows.'}catch(e){$('#bkMsg').textContent='That text is not a valid backup.'}};
+try{if(window.claude&&claude.use)claude.use('sample').then(s=>{window._sample=s||null}).catch(()=>{})}catch(e){}
+const n=new Date();$('#month').value=n.getFullYear()+'-'+String(n.getMonth()+1).padStart(2,'0');$('#smonth').value=$('#mmon').value=$('#month').value;
+renderDraft();render();
+</script></body></html>
